@@ -27,21 +27,23 @@ import java.util.concurrent.Executors;
 import androidx.annotation.NonNull;
 import androidx.exifinterface.media.ExifInterface;
 
+import android.content.Intent;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
-import io.flutter.plugin.common.PluginRegistry;
-import io.flutter.plugin.common.PluginRegistry.Registrar;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
+import io.flutter.plugin.common.MethodChannel;
+import io.flutter.plugin.common.BinaryMessenger;
+import io.flutter.plugin.common.PluginRegistry.ActivityResultListener;
 
 import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 
-public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, MethodCallHandler, PluginRegistry.RequestPermissionsResultListener {
+public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, MethodCallHandler, ActivityResultListener {
     private static final int PERMISSION_REQUEST_CODE = 13094;
 
     private MethodChannel channel;
@@ -57,20 +59,11 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
 
     public ImageCropPlugin(){ }
 
-    /**
-     * legacy APIs
-     */
-    public static void registerWith(Registrar registrar) {
-        ImageCropPlugin instance = new ImageCropPlugin(registrar.activity());
-        instance.setup(registrar.messenger());
-        registrar.addRequestPermissionsResultListener(instance);
-    }
-
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
-      this.setup(binding.getBinaryMessenger());
+        this.setup(binding.getBinaryMessenger());
     }
-  
+
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
         channel.setMethodCallHandler(null);
@@ -81,32 +74,44 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
     public void onAttachedToActivity(ActivityPluginBinding activityPluginBinding) {
         binding = activityPluginBinding;
         activity = activityPluginBinding.getActivity();
-        activityPluginBinding.addRequestPermissionsResultListener(this);
+        activityPluginBinding.addActivityResultListener(this);
     }
-   
+
     @Override
     public void onDetachedFromActivity() {
         activity = null;
         if(binding != null){
-            binding.removeRequestPermissionsResultListener(this);
+            binding.removeActivityResultListener(this);
         }
     }
 
     @Override
-    public void onReattachedToActivityForConfigChanges(ActivityPluginBinding activityPluginBinding) {
-        this.onAttachedToActivity(activityPluginBinding);
+    public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {
+        activity = binding.getActivity();
+        this.onAttachedToActivity(binding);
     }
-  
+
     @Override
     public void onDetachedFromActivityForConfigChanges() {
         this.onDetachedFromActivity();
     }
-  
+
+
     private void setup(BinaryMessenger messenger) {
         channel = new MethodChannel(messenger, "plugins.lykhonis.com/image_crop");
         channel.setMethodCallHandler(this);
     }
 
+    @Override
+    public boolean onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == 123) { // 예시: 특정 requestCode 처리
+            if (resultCode == Activity.RESULT_OK) {
+                // 결과 처리 로직 추가
+            }
+            return true; // 결과를 처리했음을 알림
+        }
+        return false; // 다른 requestCode는 처리하지 않음
+    }
 
     @SuppressWarnings("ConstantConditions")
     @Override
@@ -178,9 +183,9 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
                     transformations.postRotate(options.getDegrees());
                     Bitmap oldBitmap = srcBitmap;
                     srcBitmap = Bitmap.createBitmap(oldBitmap,
-                                                    0, 0,
-                                                    oldBitmap.getWidth(), oldBitmap.getHeight(),
-                                                    transformations, true);
+                            0, 0,
+                            oldBitmap.getWidth(), oldBitmap.getHeight(),
+                            transformations, true);
                     oldBitmap.recycle();
                 }
 
@@ -196,9 +201,9 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
                 paint.setDither(true);
 
                 Rect srcRect = new Rect((int) (srcBitmap.getWidth() * area.left),
-                                        (int) (srcBitmap.getHeight() * area.top),
-                                        (int) (srcBitmap.getWidth() * area.right),
-                                        (int) (srcBitmap.getHeight() * area.bottom));
+                        (int) (srcBitmap.getHeight() * area.top),
+                        (int) (srcBitmap.getWidth() * area.right),
+                        (int) (srcBitmap.getHeight() * area.bottom));
                 Rect dstRect = new Rect(0, 0, width, height);
                 canvas.drawBitmap(srcBitmap, srcRect, dstRect, paint);
 
@@ -256,7 +261,7 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
                 ImageOptions options = decodeImageOptions(path);
                 BitmapFactory.Options bitmapOptions = new BitmapFactory.Options();
                 bitmapOptions.inSampleSize = calculateInSampleSize(options.getWidth(), options.getHeight(),
-                                                                   maximumWidth, maximumHeight);
+                        maximumWidth, maximumHeight);
 
                 Bitmap bitmap = BitmapFactory.decodeFile(path, bitmapOptions);
                 if (bitmap == null) {
@@ -370,26 +375,26 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
         }
     }
 
-    @Override
-    public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        if (requestCode == PERMISSION_REQUEST_CODE && permissionRequestResult != null) {
-            int readExternalStorage = getPermissionGrantResult(READ_EXTERNAL_STORAGE, permissions, grantResults);
-            int writeExternalStorage = getPermissionGrantResult(WRITE_EXTERNAL_STORAGE, permissions, grantResults);
-            permissionRequestResult.success(readExternalStorage == PackageManager.PERMISSION_GRANTED &&
-                                                    writeExternalStorage == PackageManager.PERMISSION_GRANTED);
-            permissionRequestResult = null;
-        }
-        return false;
-    }
+//    @Override
+//    public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+//        if (requestCode == PERMISSION_REQUEST_CODE && permissionRequestResult != null) {
+//            int readExternalStorage = getPermissionGrantResult(READ_EXTERNAL_STORAGE, permissions, grantResults);
+//            int writeExternalStorage = getPermissionGrantResult(WRITE_EXTERNAL_STORAGE, permissions, grantResults);
+//            permissionRequestResult.success(readExternalStorage == PackageManager.PERMISSION_GRANTED &&
+//                                                    writeExternalStorage == PackageManager.PERMISSION_GRANTED);
+//            permissionRequestResult = null;
+//        }
+//        return false;
+//    }
 
-    private int getPermissionGrantResult(String permission, String[] permissions, int[] grantResults) {
-        for (int i = 0; i < permission.length(); i++) {
-            if (permission.equals(permissions[i])) {
-                return grantResults[i];
-            }
-        }
-        return PackageManager.PERMISSION_DENIED;
-    }
+//    private int getPermissionGrantResult(String permission, String[] permissions, int[] grantResults) {
+//        for (int i = 0; i < permission.length(); i++) {
+//            if (permission.equals(permissions[i])) {
+//                return grantResults[i];
+//            }
+//        }
+//        return PackageManager.PERMISSION_DENIED;
+//    }
 
     private File createTemporaryImageFile() throws IOException {
         File directory = activity.getCacheDir();

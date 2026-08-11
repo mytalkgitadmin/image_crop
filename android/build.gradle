@@ -24,10 +24,10 @@ apply plugin: 'com.android.library'
 android {
     namespace = "com.lykhonis.imagecrop"
 
-    compileSdkVersion 28
+    compileSdkVersion 34
 
     defaultConfig {
-        minSdkVersion 16
+        minSdkVersion 21
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     lintOptions {
